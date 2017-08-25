@@ -1,10 +1,10 @@
 # AnalyzeElixir
 
-**TODO: Add description**
+Tool to gather stats about modules imports in elixir project.
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
+(https://hex.pm/packages/analyze_elixir), the package can be installed
 by adding `analyze_elixir` to your list of dependencies in `mix.exs`:
 
 ```elixir
