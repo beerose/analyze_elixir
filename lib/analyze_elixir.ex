@@ -1,4 +1,4 @@
-defmodule Mix.Tasks.GatherStats do
+defmodule Mix.Tasks.AnalyzeElixir do
 
   use Mix.Task
 
@@ -7,10 +7,28 @@ defmodule Mix.Tasks.GatherStats do
   @ignored_regex ~r/#.*|"""[\s\S]*?"""|"[^\n]*?"|__[\s\S]*?__/
 
   def run(directory) do
-    files = collect_file_names(Enum.at(directory, 0) <> "/**/*{ex, exs}")
+    IO.inspect(directory)
+    case directory do
+        [] -> gather_from_dir(".")
+        [dir] -> gather_from_dir(dir)
+        [dir|dirs] -> handle_many_dirs([dir|dirs])
+    end
+  end
+
+  defp gather_from_dir(dir) do
+    files = collect_file_names(dir <> "/**/*{ex, exs}")
     collected = collect_all(files, [])
       |> Poison.encode!
-    File.write(Enum.at(directory, 0) <> ".json", collected, [:binary])
+    if dir == ".", do: dir = "all"
+    File.write(dir <> ".json", collected, [:binary])
+  end
+
+  defp handle_many_dirs(directories) do
+    case directories do
+        [] -> nil
+        [h|t] -> gather_from_dir(h)
+                 handle_many_dirs(t)   
+    end
   end
 
   def collect_all(files, acc) do
