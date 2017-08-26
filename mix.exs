@@ -36,6 +36,7 @@ defmodule AnalyzeElixir.Mixfile do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+     {:recase, "~> 0.2"},
      {:poison, "~> 2.0"},
      {:ex_doc, ">= 0.0.0", only: :dev},
      {:dialyxir, "~> 0.5", only: [:dev], runtime: false}

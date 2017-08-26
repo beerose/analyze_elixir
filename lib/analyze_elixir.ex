@@ -8,30 +8,19 @@ defmodule Mix.Tasks.AnalyzeElixir do
 
   @spec run(list())::nil
   def run(directory) do
-    IO.inspect(directory)
     case directory do
         [] -> gather_from_dir(".")
-        [dir|dirs] -> handle_many_dirs([dir|dirs])
-#        [dir] -> gather_from_dir(dir)
+        dirs -> Enum.reduce(dirs, 0,  fn(d, _) -> gather_from_dir(d) end)
     end
   end
 
   @spec gather_from_dir(binary()):: :ok|{:error, atom()}
   defp gather_from_dir(dir) do
-    files = collect_file_names(dir <> "/**/*{ex, exs}")
+    files = collect_files_in_dir(dir <> "/**/*{exs}") ++ collect_files_in_dir(dir <> "/**/*{ex}")
     collected = collect_all_imports(files, [])
       |> Poison.encode!
     if dir == ".", do: dir = "all"
     File.write(dir <> ".json", collected, [:binary])
-  end
-
-  @spec handle_many_dirs(list())::nil
-  defp handle_many_dirs(directories) do
-    case directories do
-        [h|t] -> gather_from_dir(h)
-                 handle_many_dirs(t)
-        _ -> nil 
-    end
   end
 
   @spec collect_all_imports(list(), list())::list()
@@ -52,14 +41,19 @@ defmodule Mix.Tasks.AnalyzeElixir do
   def get_file_modules_mentions({text, info}) do
     cond do
       info |> Map.to_list |> length > 1 -> 
-        splited_text = info 
+        [_|splited_text] = info 
           |> Map.keys
           |> Enum.join("|")
           |> Regex.compile
           |> elem(1)
           |> Regex.split(text)
         modules_info = Enum.zip(info |> Map.keys, splited_text)
-        |> handle_many_modules_in_file(%{})
+        |> Enum.reduce(%{}, fn({name, text}, acc) -> 
+            Map.merge(acc, get_module_mentions(text, name, info), 
+              fn(_k, v1, v2) -> if v1 == [] 
+                do v2 else v1 end
+              end)
+            end)
         Map.merge(info, modules_info)
       info |> Map.to_list |> length == 1 -> 
         [module_name] = info |> Map.keys
@@ -68,35 +62,17 @@ defmodule Mix.Tasks.AnalyzeElixir do
     end
   end
 
-  @spec handle_many_modules_in_file(list(), map())::map()
-  defp handle_many_modules_in_file(modules, info) do
-    case modules do
-      [] -> info
-      [{module_name, module_text}|modules] ->
-        module_mentions = get_module_mentions(module_text, module_name, info)
-        handle_many_modules_in_file(modules, Map.merge(module_mentions, info))
-    end
-  end
-
   @spec get_module_mentions(binary(), string(), map())::map()
   defp get_module_mentions(text, module_name, info) do
     text = Regex.replace(@ignored_regex, text, "")
     mentions = Regex.scan(@module_regex, text)
-      |> extract_module_mentions([])
+      |> Enum.reduce([], fn(m, acc) -> [Enum.at(m, 0) | acc] end)  
       |> Enum.uniq
     Map.put(info, module_name, mentions)
   end
 
-  @spec extract_module_mentions(list(), list())::list()
-  defp extract_module_mentions(mentions_list, acc) do
-    case mentions_list do
-      [] -> acc
-      [h|t] -> extract_module_mentions(t, [Enum.at(h, 0) | acc])
-    end
-  end
-  
-  @spec collect_file_names(any())::any()
-  defp collect_file_names(dir) do
+  @spec collect_files_in_dir(any())::any()
+  defp collect_files_in_dir(dir) do
     Path.wildcard(dir)
   end
 
@@ -107,7 +83,8 @@ defmodule Mix.Tasks.AnalyzeElixir do
 
   @spec get_all_modules_names({binary(), any()})::{binary(), map()}
   def get_all_modules_names({text, _info}) do
-    module_names = extract_module_names(Regex.scan(@module_name_regex, text), [])
+    module_names = Regex.scan(@module_name_regex, text)
+      |> Enum.reduce([], fn(m, acc) -> [Enum.at(m, 1) | acc] end)
     {text, make_map_from_modules_names(module_names, %{})}
   end
 
@@ -120,11 +97,9 @@ defmodule Mix.Tasks.AnalyzeElixir do
     end
   end
 
-  @spec extract_module_names(list(), list())::list()
-  defp extract_module_names(modules_list, acc) do
-    case modules_list do
-      [] -> acc |> List.flatten
-      [[_|name]|t] -> extract_module_names(t, [name|acc])
-    end
+  def get_all_modules_in_project() do
+    Regex.scan(~r/app:\s:(\w+)/, File.read("./mix.exs") |> elem(1))
+    |> Enum.at(0) |> Enum.at(1) |> String.to_atom
+    |> :application.get_key(:modules)
   end
 end
