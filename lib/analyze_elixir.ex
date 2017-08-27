@@ -2,27 +2,23 @@ defmodule Mix.Tasks.AnalyzeElixir do
   @moduledoc """
     AnalyzeElixir is a tool to gather informations about imports in project.
     It stores them in json files consistent with directories given as parameter in format:
-      '{
+      {
         "Module1": {
             "path": path
             "mentions": [...]
             "statements": [...]
         }
         "Module2": {...}
-      }'
+      }
     Where statements stand for explicit imports -- preceded with use | import | alias,
     mentions are any other modules used in current module.
-
-
     Usage:
-        'mix analyze_elixir [directories] [options]''
-     
+        mix analyze_elixir [directories] [options]
     Example:
-        'mix analyze_elixir lib web /sth/sth_else'
-        'mix analyze_elixir'
-
+        mix analyze_elixir lib web /sth/sth_else
+        mix analyze_elixir
     Options:
-        * '-only_local' - exludes foreign modules 
+        -only_local - exludes foreign modules 
   """
 
   use Mix.Task
@@ -43,12 +39,12 @@ defmodule Mix.Tasks.AnalyzeElixir do
   defp gather_from_dir(dir, local) do
     FilesHelper.collect_files_in_dir(dir)
     |> collect_all_imports(%{}, local) 
-    |> Poison.encode!
+    |> Poison.encode!(pretty: true)
     |> FilesHelper.write_to_file(dir)
   end
 
   @spec collect_all_imports(any(), any(), {boolean(), any()})::any()
-  def collect_all_imports(files, acc, local) do
+  defp collect_all_imports(files, acc, local) do
     case files do
       [] -> acc
       [path|t] -> 
@@ -62,7 +58,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
   end 
 
   @spec get_file_modules_imports({binary(), map()}, string())::map()
-  def get_file_modules_imports({text, info}, path) do
+  defp get_file_modules_imports({text, info}, path) do
     cond do
       info |> Map.to_list |> length > 1 -> 
         [_|splited_text] = info 
@@ -87,7 +83,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
   end
 
   @spec get_module_imports(binary(), string(), map(), string())::map()
-  def get_module_imports(text, module_name, info, path) do
+  defp get_module_imports(text, module_name, info, path) do
     text = RegexHelper.replace_ignored(text)
     mentions = RegexHelper.get_mentions(text, module_name)
     statements = RegexHelper.get_statements(text)
@@ -97,7 +93,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
   end
 
   @spec get_all_modules_names({binary(), any()}, {boolean(), list()})::{binary(), map()}
-  def get_all_modules_names({text, _info}, local) do
+  defp get_all_modules_names({text, _info}, local) do
     module_names = RegexHelper.get_module_names(text)
     case local do
       {true, local_modules} -> module_names = 
@@ -109,7 +105,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
   end
 
   @spec make_map_from_modules_names(list(), map())::map()
-  def make_map_from_modules_names(modules_list, acc) do
+  defp make_map_from_modules_names(modules_list, acc) do
     case modules_list do
       [] -> acc
       [h|t] -> make_map_from_modules_names(t,
@@ -118,7 +114,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
   end
 
   @spec get_all_modules_in_project()::list()
-  def get_all_modules_in_project() do
+  defp get_all_modules_in_project() do
     app_name = Regex.scan(~r/app:\s:(\w+)/, File.read("./mix.exs") |> elem(1))
     |> Enum.at(0) |> Enum.at(1) |> String.to_atom
     Mix.shell.cmd("""

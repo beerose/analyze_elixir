@@ -1,7 +1,7 @@
 defmodule RegexHelper do  
   
   @module_regex ~r/[A-Z](\w|\.(?:[A-Z]))+(?![:\w\{]|(?:.*\})|(?:.*do))|[A-Z]/
-  @module_name_regex ~r/defmodule\s*(\S+)\s*do/
+  @module_name_regex ~r/defpmodule\s*(\S+)\s*do/
   @statement_regex ~r/(@moduledoc """(.|\n)*)?#?(import|require|alias|use) ([A-Z]([\w.])+({.*})?(, :\w*)?)/
   @ignored_regex ~r/#.*|"""[\s\S]*?"""|"[^\n]*?"|__[\s\S]*?__/
 

@@ -1,1 +1,32 @@
-{"C":{"statements":[],"path":"test/test_helper.exs","mentions":["Poison.SyntaxError"]},"AnalyzeElixirTest":{"statements":["alias Mix.Tasks.AnalyzeElixir","use ExUnit.Case"],"path":"test/analyze_elixir_test.exs","mentions":["E","A","AnalyzeElixir","File","Mix.Tasks.AnalyzeElixir","ExUnit.Case","T"]},"A":{"statements":[],"path":"test/test_helper.exs","mentions":["String.Break"]}}
+{
+  "C": {
+    "statements": [],
+    "path": "test/test_helper.exs",
+    "mentions": [
+      "Poison.SyntaxError"
+    ]
+  },
+  "AnalyzeElixirTest": {
+    "statements": [
+      "alias Mix.Tasks.AnalyzeElixir",
+      "use ExUnit.Case"
+    ],
+    "path": "test/analyze_elixir_test.exs",
+    "mentions": [
+      "E",
+      "A",
+      "AnalyzeElixir",
+      "File",
+      "Mix.Tasks.AnalyzeElixir",
+      "ExUnit.Case",
+      "T"
+    ]
+  },
+  "A": {
+    "statements": [],
+    "path": "test/test_helper.exs",
+    "mentions": [
+      "String.Break"
+    ]
+  }
+}
