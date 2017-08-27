@@ -1,4 +1,29 @@
 defmodule Mix.Tasks.AnalyzeElixir do
+  @moduledoc """
+    AnalyzeElixir is a tool to gather informations about imports in project.
+    It stores them in json files consistent with directories given as parameter in format:
+      '{
+        "Module1": {
+            "path": path
+            "mentions": [...]
+            "statements": [...]
+        }
+        "Module2": ...
+      }'
+    Where statements stand for explicit imports -- preceded with use | import | alias,
+    mentions are any other modules used in current module.
+
+
+    Usage:
+        'mix analyze_elixir [directories] [options]''
+     
+    Example:
+        'mix analyze_elixir lib web /sth/sth_else'
+        'mix analyze_elixir'
+
+    Options:
+        * '-only_local' - exludes foreign modules 
+  """
 
   use Mix.Task
 
@@ -13,9 +38,10 @@ defmodule Mix.Tasks.AnalyzeElixir do
         [] -> gather_from_dir(".", local)
         dirs -> Enum.reduce(dirs, 0,  fn(d, _) -> gather_from_dir(d, local) end)
     end
+    IO.inspect "Done!"
   end
 
-  @spec gather_from_dir(binary(), boolean()):: :ok|{:error, atom()}
+  @spec gather_from_dir(binary(), {boolean(), any()}):: :ok|{:error, atom()}
   defp gather_from_dir(dir, local) do
     files = collect_files_in_dir(dir <> "/**/*{exs}") ++ collect_files_in_dir(dir <> "/**/*{ex}")
     collected = collect_all_imports(files, %{}, local) |>
@@ -24,7 +50,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
     File.write(dir <> ".json", collected, [:binary])
   end
 
-  @spec collect_all_imports(list(), list(), {boolean(), list()})::list()
+  @spec collect_all_imports(any(), any(), {boolean(), any()})::any()
   def collect_all_imports(files, acc, local) do
     case files do
       [] -> acc
@@ -109,9 +135,9 @@ defmodule Mix.Tasks.AnalyzeElixir do
   def get_all_modules_in_project() do
     app_name = Regex.scan(~r/app:\s:(\w+)/, File.read("./mix.exs") |> elem(1))
     |> Enum.at(0) |> Enum.at(1) |> String.to_atom
-    Mix.shell.cmd """
+    Mix.shell.cmd("""
     mix run -e 'IO.inspect(:application.get_key(:#{app_name}, :modules) |> elem(1))' > "modules.txt"
-    """
+    """)
     {:ok, modules} = File.read("modules.txt")
     #File.rm!("modules.txt")
     Regex.scan(@module_regex, modules) |> Enum.map(fn([name, _]) -> name end)
