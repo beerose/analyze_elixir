@@ -8,7 +8,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
             "mentions": [...]
             "statements": [...]
         }
-        "Module2": ...
+        "Module2": {...}
       }'
     Where statements stand for explicit imports -- preceded with use | import | alias,
     mentions are any other modules used in current module.
@@ -29,6 +29,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
 
   @module_regex ~r/[A-Z](\w|\.(?:[A-Z]))+(?![:\w\{]|(?:.*\})|(?:.*do))|[A-Z]/
   @module_name_regex ~r/defmodule\s*(\S+)\s*do/
+  @statement_regex ~r/(@moduledoc """(.|\n)*)?#?(import|require|alias|use) ([A-Z]([\w.])+({.*})?(, :\w*)?)/;
   @ignored_regex ~r/#.*|"""[\s\S]*?"""|"[^\n]*?"|__[\s\S]*?__/
 
   @spec run(list())::nil
@@ -59,13 +60,13 @@ defmodule Mix.Tasks.AnalyzeElixir do
         {path, %{}}
         |> read_file()
         |> get_all_modules_names(local) # have text and map with module names 
-        |> get_file_modules_mentions(path)
+        |> get_file_modules_imports(path)
         collect_all_imports(t, Map.merge(info, acc), local) 
     end
   end 
 
-  @spec get_file_modules_mentions({binary(), map()}, string())::map()
-  def get_file_modules_mentions({text, info}, path) do
+  @spec get_file_modules_imports({binary(), map()}, string())::map()
+  def get_file_modules_imports({text, info}, path) do
     cond do
       info |> Map.to_list |> length > 1 -> 
         [_|splited_text] = info 
@@ -76,7 +77,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
           |> Regex.split(text)
         modules_info = Enum.zip(info |> Map.keys, splited_text)
         |> Enum.reduce(%{}, fn({name, text}, acc) -> 
-            Map.merge(acc, %{name => get_module_mentions(text, name, info[name], path)}, 
+            Map.merge(acc, %{name => get_module_imports(text, name, info[name], path)}, 
               fn(_k, v1, v2) -> if v1["mentions"]== [] 
                 do v2 else v1 end
               end)
@@ -84,20 +85,33 @@ defmodule Mix.Tasks.AnalyzeElixir do
         Map.merge(info, modules_info)
       info |> Map.to_list |> length == 1 -> 
         [module_name] = info |> Map.keys
-        %{module_name => get_module_mentions(text, module_name, info[module_name], path)}
+        %{module_name => get_module_imports(text, module_name, info[module_name], path)}
       true -> nil
     end
   end
 
-  @spec get_module_mentions(binary(), string(), map(), string())::map()
-  def get_module_mentions(text, module_name, info, path) do
+  @spec get_module_imports(binary(), string(), map(), string())::map()
+  def get_module_imports(text, module_name, info, path) do
     text = Regex.replace(@ignored_regex, text, "")
-    mentions = Regex.scan(@module_regex, text)
-      |> Enum.reduce([], fn(m, acc) -> [Enum.at(m, 0) | acc] end)  
-      |> Enum.uniq 
-      |> Enum.filter(fn(x) -> x != module_name end)
+    mentions = get_mentions(text, module_name)
+    statements = get_statements(text)
     Map.put(info, "mentions", mentions)
+    |> Map.put("statements", statements)
     |> Map.put("path", path)
+  end
+
+  @spec get_statements(binary())::list()
+  def get_statements(text) do
+    Regex.scan(@statement_regex, text)
+    |>Enum.reduce([], fn(m, acc) -> [Enum.at(m, 0) | acc] end)
+  end
+
+  @spec get_mentions(binary(), string())::list()
+  def get_mentions(text, module_name) do
+    Regex.scan(@module_regex, text)
+    |> Enum.reduce([], fn(m, acc) -> [Enum.at(m, 0) | acc] end)  
+    |> Enum.uniq 
+    |> Enum.filter(fn(x) -> x != module_name end)
   end
 
   @spec collect_files_in_dir(any())::any()
