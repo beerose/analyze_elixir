@@ -1,0 +1,15 @@
+defmodule A do
+
+    def foo do
+        String.to_atom("a")
+    end
+
+end
+
+defmodule B do 
+
+    def boo do
+        C.foo()
+    end
+
+end

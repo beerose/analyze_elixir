@@ -1,0 +1,6 @@
+defmodule A do
+
+    String.sth
+    AnotherModule.sth
+
+end

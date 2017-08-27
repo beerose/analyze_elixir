@@ -2,7 +2,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
 
   use Mix.Task
 
-  @module_regex ~r/[A-Z](\w|\.(?:[A-Z]))+(?![:\w\{]|(?:.*\})|(?:.*do))/
+  @module_regex ~r/[A-Z](\w|\.(?:[A-Z]))+(?![:\w\{]|(?:.*\})|(?:.*do))|[A-Z]/
   @module_name_regex ~r/defmodule\s*(\S+)\s*do/
   @ignored_regex ~r/#.*|"""[\s\S]*?"""|"[^\n]*?"|__[\s\S]*?__/
 
@@ -57,6 +57,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
                 do v2 else v1 end
               end)
             end)
+        IO.inspect({info, modules_info})
         Map.merge(info, modules_info)
       info |> Map.to_list |> length == 1 -> 
         [module_name] = info |> Map.keys
@@ -66,11 +67,12 @@ defmodule Mix.Tasks.AnalyzeElixir do
   end
 
   @spec get_module_mentions(binary(), string(), map())::map()
-  defp get_module_mentions(text, module_name, info) do
+  def get_module_mentions(text, module_name, info) do
     text = Regex.replace(@ignored_regex, text, "")
     mentions = Regex.scan(@module_regex, text)
       |> Enum.reduce([], fn(m, acc) -> [Enum.at(m, 0) | acc] end)  
-      |> Enum.uniq
+      |> Enum.uniq 
+      |> Enum.filter(fn(x) -> x != module_name end)
     Map.put(info, module_name, mentions)
   end
 
@@ -98,7 +100,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
   end
 
   @spec make_map_from_modules_names(list(), map())::map()
-  defp make_map_from_modules_names(modules_list, acc) do
+  def make_map_from_modules_names(modules_list, acc) do
     case modules_list do
       [] -> acc
       [h|t] -> make_map_from_modules_names(t,
