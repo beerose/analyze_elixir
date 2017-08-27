@@ -26,11 +26,8 @@ defmodule Mix.Tasks.AnalyzeElixir do
   """
 
   use Mix.Task
-
-  @module_regex ~r/[A-Z](\w|\.(?:[A-Z]))+(?![:\w\{]|(?:.*\})|(?:.*do))|[A-Z]/
-  @module_name_regex ~r/defmodule\s*(\S+)\s*do/
-  @statement_regex ~r/(@moduledoc """(.|\n)*)?#?(import|require|alias|use) ([A-Z]([\w.])+({.*})?(, :\w*)?)/;
-  @ignored_regex ~r/#.*|"""[\s\S]*?"""|"[^\n]*?"|__[\s\S]*?__/
+  alias RegexHelper
+  alias FilesHelper
 
   @spec run(list())::nil
   def run(directory) do
@@ -44,11 +41,10 @@ defmodule Mix.Tasks.AnalyzeElixir do
 
   @spec gather_from_dir(binary(), {boolean(), any()}):: :ok|{:error, atom()}
   defp gather_from_dir(dir, local) do
-    files = collect_files_in_dir(dir <> "/**/*{exs}") ++ collect_files_in_dir(dir <> "/**/*{ex}")
-    collected = collect_all_imports(files, %{}, local) |>
-               Poison.encode!
-    if dir == ".", do: dir = "all"
-    File.write(dir <> ".json", collected, [:binary])
+    FilesHelper.collect_files_in_dir(dir)
+    |> collect_all_imports(%{}, local) 
+    |> Poison.encode!
+    |> FilesHelper.write_to_file(dir)
   end
 
   @spec collect_all_imports(any(), any(), {boolean(), any()})::any()
@@ -58,7 +54,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
       [path|t] -> 
         info =
         {path, %{}}
-        |> read_file()
+        |> FilesHelper.read_file()
         |> get_all_modules_names(local) # have text and map with module names 
         |> get_file_modules_imports(path)
         collect_all_imports(t, Map.merge(info, acc), local) 
@@ -92,42 +88,17 @@ defmodule Mix.Tasks.AnalyzeElixir do
 
   @spec get_module_imports(binary(), string(), map(), string())::map()
   def get_module_imports(text, module_name, info, path) do
-    text = Regex.replace(@ignored_regex, text, "")
-    mentions = get_mentions(text, module_name)
-    statements = get_statements(text)
+    text = RegexHelper.replace_ignored(text)
+    mentions = RegexHelper.get_mentions(text, module_name)
+    statements = RegexHelper.get_statements(text)
     Map.put(info, "mentions", mentions)
     |> Map.put("statements", statements)
     |> Map.put("path", path)
   end
 
-  @spec get_statements(binary())::list()
-  def get_statements(text) do
-    Regex.scan(@statement_regex, text)
-    |>Enum.reduce([], fn(m, acc) -> [Enum.at(m, 0) | acc] end)
-  end
-
-  @spec get_mentions(binary(), string())::list()
-  def get_mentions(text, module_name) do
-    Regex.scan(@module_regex, text)
-    |> Enum.reduce([], fn(m, acc) -> [Enum.at(m, 0) | acc] end)  
-    |> Enum.uniq 
-    |> Enum.filter(fn(x) -> x != module_name end)
-  end
-
-  @spec collect_files_in_dir(any())::any()
-  defp collect_files_in_dir(dir) do
-    Path.wildcard(dir)
-  end
-
-  @spec read_file({string(), any()})::{binary(), any()}
-  def read_file({file_path, info}) do
-    {File.read(file_path) |> elem(1), info}
-  end
-
   @spec get_all_modules_names({binary(), any()}, {boolean(), list()})::{binary(), map()}
   def get_all_modules_names({text, _info}, local) do
-    module_names = Regex.scan(@module_name_regex, text)
-      |> Enum.reduce([], fn(m, acc) -> [Enum.at(m, 1) | acc] end)
+    module_names = RegexHelper.get_module_names(text)
     case local do
       {true, local_modules} -> module_names = 
         Enum.filter(module_names, 
@@ -146,6 +117,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
     end
   end
 
+  @spec get_all_modules_in_project()::list()
   def get_all_modules_in_project() do
     app_name = Regex.scan(~r/app:\s:(\w+)/, File.read("./mix.exs") |> elem(1))
     |> Enum.at(0) |> Enum.at(1) |> String.to_atom
@@ -153,7 +125,7 @@ defmodule Mix.Tasks.AnalyzeElixir do
     mix run -e 'IO.inspect(:application.get_key(:#{app_name}, :modules) |> elem(1))' > "modules.txt"
     """)
     {:ok, modules} = File.read("modules.txt")
-    #File.rm!("modules.txt")
-    Regex.scan(@module_regex, modules) |> Enum.map(fn([name, _]) -> name end)
+    File.rm!("modules.txt")
+    RegexHelper.get_module_names(modules)
   end
 end
